@@ -1,0 +1,205 @@
+/* General Page Styling */
+body { 
+    background: #0f0f0f; 
+    color: white; 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    padding: 40px; 
+    margin: 0; 
+}
+
+header { 
+    text-align: center; 
+    margin-bottom: 50px; 
+}
+
+header h1 { 
+    letter-spacing: 2px; 
+    text-transform: uppercase;
+    font-size: 2rem;
+}
+
+/* Gallery Grid System */
+.grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+    gap: 30px; 
+    padding: 10px; 
+}
+
+/* Card Container & Hover Effect */
+.card-container { 
+    position: relative; 
+    transition: transform 0.3s ease; 
+}
+
+.card-container:hover { 
+    transform: translateY(-10px); 
+    z-index: 5; 
+}
+
+/* Individual Artifact Card */
+.card { 
+    background: #1a1a1a; 
+    border-radius: 15px; 
+    overflow: hidden; 
+    border: 1px solid #333;
+    cursor: pointer; 
+    height: 100%; 
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto; /* Ensures the click is captured */
+}
+
+.card:hover { 
+    border-color: #007bff; 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8); 
+}
+
+.card img { 
+    width: 100%; 
+    height: 220px; 
+    object-fit: cover; 
+    border-bottom: 1px solid #333;
+}
+
+.card-body { 
+    padding: 20px; 
+}
+
+/* Short Title Styling */
+.card-body h3 {
+    margin: 0 0 10px 0;
+    color: #007bff;
+    font-size: 1.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-body small {
+    display: block;
+    color: #555;
+    margin-bottom: 10px;
+    font-size: 0.75rem;
+}
+
+/* Text Clamping - Shows 2 lines on the card preview */
+.card-body p { 
+    font-size: 0.9rem; 
+    color: #888; 
+    display: -webkit-box; 
+    -webkit-line-clamp: 2; 
+    -webkit-box-orient: vertical; 
+    overflow: hidden; 
+    line-height: 1.5;
+}
+
+/* Delete Button - Sleek Circle Design */
+.del-btn {
+    position: absolute; 
+    top: -10px; 
+    right: -10px; 
+    background: #dc3545;
+    color: white; 
+    border: none; 
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+    cursor: pointer; 
+    z-index: 10; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    transition: background 0.2s;
+}
+
+.del-btn:hover { 
+    background: #ff0000; 
+}
+
+/* --- MODAL SYSTEM (The Popup) --- */
+
+#modalOverlay {
+    display: none; /* Controlled by JS */
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95); 
+    z-index: 999999; /* Higher than everything else */
+    align-items: center; 
+    justify-content: center; 
+    backdrop-filter: blur(12px);
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.modal-box {
+    background: #1a1a1a; 
+    padding: 30px; 
+    border-radius: 20px; 
+    max-width: 700px; 
+    width: 100%; 
+    max-height: 90vh; 
+    overflow-y: auto; 
+    border: 1px solid #444; 
+    position: relative;
+    box-shadow: 0 0 50px rgba(0,0,0,1);
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.close-btn { 
+    position: absolute; 
+    top: 20px; 
+    right: 25px; 
+    font-size: 40px; 
+    cursor: pointer; 
+    color: #666; 
+    z-index: 100;
+}
+
+.close-btn:hover {
+    color: white;
+}
+
+#modalImg { 
+    width: 100%; 
+    max-height: 400px;
+    object-fit: contain;
+    border-radius: 10px; 
+    margin-bottom: 25px; 
+    background: #000;
+}
+
+#modalTitle {
+    margin: 0 0 15px 0;
+    font-size: 2rem;
+    color: #007bff;
+}
+
+#modalText {
+    line-height: 1.8; 
+    color: #ddd; 
+    white-space: pre-wrap; /* Keeps the line breaks from the AI text */
+    font-size: 1.05rem;
+}
+
+/* Custom Scrollbar for Modal */
+.modal-box::-webkit-scrollbar {
+    width: 8px;
+}
+.modal-box::-webkit-scrollbar-track {
+    background: #111;
+}
+.modal-box::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 10px;
+}
