@@ -1,209 +1,171 @@
 require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const { GoogleGenAI } = require("@google/genai");
+const path = require('path');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-app.use(express.urlencoded({ extended: true })); 
-app.use(express.static('public')); 
-app.use('/uploads', express.static('uploads'));
+const genAI = new GoogleGenAI(process.env.GEMINI_KEY);
 
-const apiKey = process.env.GEMINI_KEY;
-const ai = new GoogleGenAI({ apiKey: apiKey });
+cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.CLOUD_KEY,
+    api_secret: process.env.CLOUD_SECRET
+});
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = 'uploads';
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'artifacts',
+        allowed_formats: ['jpg', 'png', 'jpeg']
     }
 });
 const upload = multer({ storage: storage });
 
+app.use(express.static('public'));
+app.use(express.urlencoded({ extended: true }));
+
+let temporaryHistory = []; 
+
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
-        <html>
+        <html lang="ro">
         <head>
+            <meta charset="UTF-8">
             <link rel="stylesheet" href="/style.css">
-            <title>Artefact AI 2026</title>
+            <title>Scanare Artefacte</title>
         </head>
-        <body style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #0f0f0f;">
-            <div style="background: #1a1a1a; padding: 40px; border-radius: 15px; border: 1px solid #333; text-align: center; width: 350px; color: white; font-family: sans-serif;">
-                <h2 style="color: #007bff; margin-bottom: 5px;">Artefact AI</h2>
-                <form action="/upload" method="POST" enctype="multipart/form-data" onsubmit="showLoading()">
-                    <input type="file" name="image" required style="margin-bottom: 20px; width: 100%;">
-                    <button type="submit" id="submitBtn" style="background: #007bff; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold;">Analyze Artifact</button>
+        <body>
+            <header>
+                <h1>AI ARTEFACT SCANNER</h1>
+                <p>Încarcă o poză pentru a identifica obiectul</p>
+            </header>
+            <main style="text-align:center;">
+                <form action="/upload" method="POST" enctype="multipart/form-data">
+                    <input type="file" name="image" accept="image/*" required>
+                    <button type="submit">SCANEAZĂ ACUM</button>
                 </form>
-                <div id="loadingMsg" style="display:none; margin-top:20px; color:#007bff;">🔍 Scanning...</div>
-                <hr style="border: 0; border-top: 1px solid #333; margin: 25px 0;">
-                <a href="/history" style="color: #888; text-decoration: none; font-size: 0.9rem;">View My Collection →</a>
-            </div>
-            <script>function showLoading(){ document.getElementById('submitBtn').disabled = true; document.getElementById('loadingMsg').style.display = 'block'; }</script>
+                <br>
+                <a href="/history" style="color:#007bff; text-decoration:none;">VEZI COLECȚIA</a>
+            </main>
         </body>
         </html>
     `);
 });
 
 app.post('/upload', upload.single('image'), async (req, res) => {
-    if (!req.file) return res.send("No file selected.");
     try {
-        const result = await ai.models.generateContent({
-            model: "gemini-2.5-flash-lite",
-            contents: [{
-                role: 'user',
-                parts: [
-                    { text: "Identify this artifact. First line: 3-word title. Following lines: Detailed historical analysis (3 paragraphs)." },
-                    { inlineData: { data: fs.readFileSync(req.file.path).toString("base64"), mimeType: req.file.mimetype } }
-                ]
-            }]
-        });
+        if (!req.file) return res.send("Eroare: Nu ai încărcat nicio imagine.");
 
-        const fullText = result.text;
-        const lines = fullText.split('\n');
-        const shortTitle = lines[0].replace(/[*#]/g, '').trim();
-        const description = lines.slice(1).join('\n').trim();
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const response = await fetch(req.file.path);
+        const buffer = await response.arrayBuffer();
+        
+        const result = await model.generateContent([
+            "Identifică acest artefact. Prima linie: titlu scurt (3 cuvinte). Restul: descriere detaliată în română.",
+            { inlineData: { data: Buffer.from(buffer).toString('base64'), mimeType: req.file.mimetype } }
+        ]);
+
+        const text = result.response.text();
+        const lines = text.split('\n');
+        const title = lines[0].replace(/[*#]/g, '').trim();
+        const analysis = lines.slice(1).join('\n').trim();
+
+        const newEntry = {
+            id: Date.now(),
+            title: title,
+            image: req.file.path,
+            analysis: analysis,
+            date: new Date().toLocaleDateString('ro-RO')
+        };
+        temporaryHistory.push(newEntry);
 
         res.send(`
             <!DOCTYPE html>
-            <html>
+            <html lang="ro">
             <head>
+                <meta charset="UTF-8">
                 <link rel="stylesheet" href="/style.css">
-                <title>Scan Results</title>
+                <title>Rezultat Scanare</title>
             </head>
-            <body style="background: #0f0f0f; color: white; font-family: sans-serif; padding: 40px;">
-                <div style="max-width: 900px; margin: 0 auto;">
-                    <h1 style="text-align:center; color:#007bff;">${shortTitle}</h1>
-                    <div style="display: flex; gap: 40px; background: #1a1a1a; padding: 30px; border-radius: 20px; border: 1px solid #333; align-items: start;">
-                        <img src="/uploads/${req.file.filename}" style="width: 40%; border-radius: 15px; border: 1px solid #444;">
-                        <div style="flex: 1;">
-                            <h2 style="margin-top:0; color:#007bff;">Discovery Details</h2>
-                            <p style="line-height: 1.8; color: #ccc; white-space: pre-wrap;">${description}</p>
-                            
-                            <div style="display: flex; gap: 15px; margin-top: 30px;">
-                                <form action="/confirm-save" method="POST" style="flex:1;">
-                                    <input type="hidden" name="id" value="${path.parse(req.file.filename).name}">
-                                    <input type="hidden" name="title" value="${shortTitle}">
-                                    <input type="hidden" name="imageFile" value="${req.file.filename}">
-                                    <input type="hidden" name="analysis" value="${encodeURIComponent(fullText)}">
-                                    <button type="submit" style="width:100%; background: #28a745; color: white; border: none; padding: 15px; border-radius: 10px; cursor: pointer; font-weight: bold;">SAVE TO COLLECTION</button>
-                                </form>
-                                <form action="/discard" method="POST" style="flex:1;">
-                                    <input type="hidden" name="imageFile" value="${req.file.filename}">
-                                    <button type="submit" style="width:100%; background: #dc3545; color: white; border: none; padding: 15px; border-radius: 10px; cursor: pointer; font-weight: bold;">DISCARD SCAN</button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <body>
+                <header>
+                    <h1>REZULTAT IDENTIFICARE</h1>
+                </header>
+                <main style="max-width:600px; margin:auto; text-align:center;">
+                    <img src="${req.file.path}" style="width:100%; border-radius:15px;">
+                    <h2 style="color:#007bff;">${title}</h2>
+                    <p style="text-align:left; line-height:1.6;">${analysis}</p>
+                    <hr>
+                    <a href="/history" style="display:inline-block; margin-top:20px; color:#007bff;">MERGI LA ARHIVĂ</a>
+                    <br><br>
+                    <a href="/" style="color:#666;">ÎNAPOI LA PAGINA PRINCIPALĂ</a>
+                </main>
             </body>
             </html>
         `);
-    } catch (error) { res.status(500).send("AI Error: " + error.message); }
-});
-
-app.post('/confirm-save', (req, res) => {
-    const { id, title, imageFile, analysis } = req.body;
-    if (!id) return res.status(400).send("Error: Missing Artifact ID");
-    const artifactData = { id, title, imageFile, analysis: decodeURIComponent(analysis), timestamp: new Date().toLocaleString('en-GB') };
-    fs.writeFileSync(path.join(__dirname, 'uploads', `${id}.json`), JSON.stringify(artifactData, null, 2));
-    res.redirect('/history');
-});
-
-app.post('/discard', (req, res) => {
-    const imgPath = path.join(__dirname, 'uploads', req.body.imageFile);
-    if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
-    res.redirect('/');
-});
-
-app.get('/delete/:id', (req, res) => {
-    const jsonPath = path.join(__dirname, 'uploads', `${req.params.id}.json`);
-    if (fs.existsSync(jsonPath)) {
-        const data = JSON.parse(fs.readFileSync(jsonPath));
-        const imgPath = path.join(__dirname, 'uploads', data.imageFile);
-        if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
-        fs.unlinkSync(jsonPath);
+    } catch (error) {
+        res.status(500).send("Eroare Server: " + error.message);
     }
-    res.redirect('/history');
 });
 
 app.get('/history', (req, res) => {
-    const uploadDir = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-    const files = fs.readdirSync(uploadDir).filter(f => f.endsWith('.json'));
-    const historyData = files.map(file => JSON.parse(fs.readFileSync(path.join(uploadDir, file), 'utf8')));
-
-    let cardsHtml = historyData.reverse().map(item => {
-        return `
-            <div class="card-container">
-                <button class="del-btn" onclick="event.stopPropagation(); window.location.href='/delete/${item.id}'">✕</button>
-                <div class="card" 
-                     data-title="${item.title}" 
-                     data-img="/uploads/${item.imageFile}" 
-                     data-text="${encodeURIComponent(item.analysis)}">
-                    <img src="/uploads/${item.imageFile}">
-                    <div class="card-body">
-                        <h3>${item.title || 'Artifact'}</h3>
-                        <small>${item.timestamp}</small>
-                        <p>${item.analysis.substring(0, 80)}...</p>
-                    </div>
+    let cardsHtml = temporaryHistory.slice().reverse().map(item => `
+        <div class="card-container" data-title="${item.title.toLowerCase()}">
+            <div class="card" data-title="${item.title}" data-img="${item.image}" data-text="${encodeURIComponent(item.analysis)}">
+                <img src="${item.image}">
+                <div class="card-body">
+                    <h3>${item.title}</h3>
+                    <small>${item.date}</small>
+                    <p>${item.analysis.substring(0, 80)}...</p>
                 </div>
-            </div>`;
-    }).join('');
+            </div>
+        </div>
+    `).join('');
 
     res.send(`
         <!DOCTYPE html>
-        <html>
+        <html lang="ro">
         <head>
+            <meta charset="UTF-8">
             <link rel="stylesheet" href="/style.css">
-            <title>Museum Collection</title>
+            <title>Arhiva Muzeului</title>
         </head>
         <body>
             <header>
-                <h1>🏺 YOUR COLLECTION</h1>
-                <a href="/" style="color: #007bff; text-decoration: none; font-weight: bold;">+ ADD NEW SCAN</a>
+                <h1>🏺 COLECȚIA TA DE ARTEFACTE</h1>
+                <input type="text" id="searchInput" placeholder="Caută după titlu..." style="padding:10px; width:250px; border-radius:20px; border:1px solid #333; background:#1a1a1a; color:white;">
+                <br><br>
+                <a href="/" style="color:#007bff; text-decoration:none; font-weight:bold;">⬅ ÎNAPOI LA PAGINA PRINCIPALĂ</a>
             </header>
-            <div class="grid">${cardsHtml}</div>
-
+            <div class="grid">${cardsHtml || '<p>Niciun artefact salvat.</p>'}</div>
             <div id="modalOverlay">
                 <div class="modal-box">
-                    <span class="close-btn">&times;</span>
-                    <img id="modalImg" src="">
-                    <h2 id="modalTitle" style="color: #007bff; margin-top: 0;"></h2>
-                    <div id="modalText" style="line-height: 1.8; color: #ddd; white-space: pre-wrap;"></div>
+                    <span class="close-btn" onclick="document.getElementById('modalOverlay').style.display='none'">&times;</span>
+                    <img id="modalImg" src="" style="width:100%; border-radius:10px;">
+                    <h2 id="modalTitle" style="color:#007bff;"></h2>
+                    <div id="modalText" style="color:#ddd; line-height:1.6;"></div>
                 </div>
             </div>
-
             <script>
-                // New logic: Use Event Listeners instead of onclick attributes
-                document.querySelectorAll('.card').forEach(card => {
-                    card.addEventListener('click', function() {
-                        const title = this.getAttribute('data-title');
-                        const img = this.getAttribute('data-img');
-                        const text = decodeURIComponent(this.getAttribute('data-text'));
-                        
-                        document.getElementById('modalImg').src = img;
-                        document.getElementById('modalTitle').innerText = title;
-                        document.getElementById('modalText').innerText = text;
-                        document.getElementById('modalOverlay').style.display = 'flex';
+                document.getElementById('searchInput').addEventListener('input', (e) => {
+                    const term = e.target.value.toLowerCase();
+                    document.querySelectorAll('.card-container').forEach(c => {
+                        c.style.display = c.getAttribute('data-title').includes(term) ? 'block' : 'none';
                     });
                 });
-
-                document.querySelector('.close-btn').addEventListener('click', () => {
-                    document.getElementById('modalOverlay').style.display = 'none';
-                });
-
-                window.addEventListener('click', (e) => {
-                    if (e.target == document.getElementById('modalOverlay')) {
-                        document.getElementById('modalOverlay').style.display = 'none';
-                    }
+                document.querySelectorAll('.card').forEach(card => {
+                    card.onclick = () => {
+                        document.getElementById('modalImg').src = card.getAttribute('data-img');
+                        document.getElementById('modalTitle').innerText = card.getAttribute('data-title');
+                        document.getElementById('modalText').innerText = decodeURIComponent(card.getAttribute('data-text'));
+                        document.getElementById('modalOverlay').style.display = 'flex';
+                    };
                 });
             </script>
         </body>
@@ -211,4 +173,4 @@ app.get('/history', (req, res) => {
     `);
 });
 
-app.listen(port, () => console.log('✅ http://localhost:3000'));
+app.listen(port, () => console.log('Server pornit pe portul ' + port));
