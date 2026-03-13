@@ -7,27 +7,32 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// 1. Logăm inițializarea API-ului
+console.log("--- INITIALIZING GEMINI ---");
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
+console.log("genAI Object Structure:", JSON.stringify(genAI, null, 2));
+
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 app.use(express.static('public'));
-app.use(express.json());
-
-let scanHistory = [];
-let temporaryScan = null;
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.post('/analyze', upload.single('image'), async (req, res) => {
+    console.log("--- NEW ANALYSIS REQUEST ---");
     try {
-        if (!req.file) return res.status(400).send("No file uploaded");
+        if (!req.file) {
+            console.log("Error: No file in request");
+            return res.status(400).send("No file uploaded");
+        }
 
-        // Curățăm apelul: lăsăm biblioteca să folosească ruta stabilă implicită
+        // 2. Logăm modelul selectat
+        console.log("Selecting model: gemini-1.5-flash");
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
+        
         const imagePart = {
             inlineData: {
                 data: req.file.buffer.toString("base64"),
@@ -35,74 +40,48 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
             }
         };
 
+        console.log("Sending data to Google API...");
+        
         const result = await model.generateContent([
-            "Identify this artifact. Provide a short Title and a Description.", 
+            "Return a short Title and a Description for this artifact.", 
             imagePart
         ]);
+
+        console.log("Waiting for response...");
         const response = await result.response;
         const text = response.text();
-
-        const title = text.split('\n')[0].replace(/[*#]/g, '').trim() || "New Artifact";
-
-        temporaryScan = {
-            id: Date.now(),
-            title: title,
-            description: text,
-            image: `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`
-        };
+        
+        console.log("Success! Response received:", text.substring(0, 50) + "...");
 
         res.send(`
             <html>
                 <head><link rel="stylesheet" href="/style.css"></head>
                 <body>
                     <div class="container">
-                        <h1 style="color: #3b82f6;">${title}</h1>
                         <div class="card">
-                            <img src="${temporaryScan.image}" style="width:100%; border-radius:10px;">
-                            <p style="text-align: left; font-size: 0.9rem; margin-top: 15px;">${text}</p>
+                            <img src="data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}">
+                            <p style="padding: 15px; text-align: left;">${text}</p>
                         </div>
-                        <div style="display:flex; gap:10px; margin-top:20px;">
-                            <button onclick="location.href='/save'" style="background:#22c55e;">SAVE SCAN</button>
-                            <button onclick="location.href='/'" style="background:#ef4444;">DISCARD</button>
-                        </div>
+                        <button onclick="location.href='/'" style="margin-top: 20px;">BACK</button>
                     </div>
                 </body>
             </html>
         `);
     } catch (error) {
-        res.status(500).send(`<html><head><link rel="stylesheet" href="/style.css"></head><body><div class="container"><h1>Error</h1><p>${error.message}</p><a href="/">Back</a></div></body></html>`);
+        // 3. Logăm eroarea completă în consolă (pe Render)
+        console.error("--- API ERROR DETECTED ---");
+        console.error("Message:", error.message);
+        console.error("Full Error Stack:", error.stack);
+        
+        res.status(500).send(`
+            <div style="background: #1e1e1e; color: white; padding: 20px; border-radius: 10px; font-family: sans-serif;">
+                <h2 style="color: #ef4444;">Eroare de Conexiune</h2>
+                <p>Serverul a răspuns: <strong>${error.message}</strong></p>
+                <p>Verifică log-urile din Render Dashboard pentru detalii.</p>
+                <a href="/" style="color: #3b82f6;">Încearcă din nou</a>
+            </div>
+        `);
     }
 });
 
-app.get('/save', (req, res) => {
-    if (temporaryScan) {
-        scanHistory.unshift(temporaryScan);
-        temporaryScan = null;
-    }
-    res.redirect('/history');
-});
-
-app.get('/history', (req, res) => {
-    let cardsHTML = scanHistory.map(s => `
-        <div class="card">
-            <img src="${s.image}">
-            <h3>${s.title}</h3>
-            <p>${s.description.substring(0, 100)}...</p>
-        </div>
-    `).join('');
-    
-    res.send(`
-        <html>
-            <head><link rel="stylesheet" href="/style.css"></head>
-            <body>
-                <div class="container" style="max-width: 600px;">
-                    <h1>Your Collection</h1>
-                    <div class="grid">${cardsHTML || "<p>Empty</p>"}</div>
-                    <a href="/">+ Add New</a>
-                </div>
-            </body>
-        </html>
-    `);
-});
-
-app.listen(port, () => console.log(`Server started on port ${port}`));
+app.listen(port, () => console.log(`Server is running on port ${port}`));
