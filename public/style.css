@@ -1,4 +1,3 @@
-/* General Page Styling */
 body { 
     background: #0f0f0f; 
     color: white; 
@@ -18,7 +17,6 @@ header h1 {
     font-size: 2rem;
 }
 
-/* Gallery Grid System */
 .grid { 
     display: grid; 
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
@@ -26,7 +24,6 @@ header h1 {
     padding: 10px; 
 }
 
-/* Card Container & Hover Effect */
 .card-container { 
     position: relative; 
     transition: transform 0.3s ease; 
@@ -37,7 +34,6 @@ header h1 {
     z-index: 5; 
 }
 
-/* Individual Artifact Card */
 .card { 
     background: #1a1a1a; 
     border-radius: 15px; 
@@ -47,7 +43,7 @@ header h1 {
     height: 100%; 
     display: flex;
     flex-direction: column;
-    pointer-events: auto; /* Ensures the click is captured */
+    pointer-events: auto; 
 }
 
 .card:hover { 
@@ -66,7 +62,6 @@ header h1 {
     padding: 20px; 
 }
 
-/* Short Title Styling */
 .card-body h3 {
     margin: 0 0 10px 0;
     color: #007bff;
@@ -83,7 +78,6 @@ header h1 {
     font-size: 0.75rem;
 }
 
-/* Text Clamping - Shows 2 lines on the card preview */
 .card-body p { 
     font-size: 0.9rem; 
     color: #888; 
@@ -94,7 +88,6 @@ header h1 {
     line-height: 1.5;
 }
 
-/* Delete Button - Sleek Circle Design */
 .del-btn {
     position: absolute; 
     top: -10px; 
@@ -119,17 +112,15 @@ header h1 {
     background: #ff0000; 
 }
 
-/* --- MODAL SYSTEM (The Popup) --- */
-
 #modalOverlay {
-    display: none; /* Controlled by JS */
+    display: none; 
     position: fixed; 
     top: 0; 
     left: 0; 
     width: 100%; 
     height: 100%;
     background: rgba(0, 0, 0, 0.95); 
-    z-index: 999999; /* Higher than everything else */
+    z-index: 999999; 
     align-items: center; 
     justify-content: center; 
     backdrop-filter: blur(12px);
@@ -188,17 +179,18 @@ header h1 {
 #modalText {
     line-height: 1.8; 
     color: #ddd; 
-    white-space: pre-wrap; /* Keeps the line breaks from the AI text */
+    white-space: pre-wrap; 
     font-size: 1.05rem;
 }
 
-/* Custom Scrollbar for Modal */
 .modal-box::-webkit-scrollbar {
     width: 8px;
 }
+
 .modal-box::-webkit-scrollbar-track {
     background: #111;
 }
+
 .modal-box::-webkit-scrollbar-thumb {
     background: #333;
     border-radius: 10px;

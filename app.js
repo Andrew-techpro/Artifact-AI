@@ -7,7 +7,6 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configurare Google Gemini folosind cheia nouă
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 
 const storage = multer.memoryStorage();
@@ -23,7 +22,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         }
 
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const prompt = req.body.prompt || "Analizează această imagine în limba română.";
+        const prompt = req.body.prompt || "Analyze this image in detail.";
 
         const imagePart = {
             inlineData: {
@@ -36,11 +35,11 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         const response = await result.response;
         res.json({ text: response.text() });
     } catch (error) {
-        console.error("Eroare:", error);
+        console.error("Error:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.listen(port, () => {
-    console.log(`Server activ pe portul ${port}`);
+    console.log(`Server is running on port ${port}`);
 });
