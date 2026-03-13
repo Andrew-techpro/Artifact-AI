@@ -22,85 +22,71 @@ app.get('/', (req, res) => {
 
 app.post('/analyze', upload.single('image'), async (req, res) => {
     try {
-        if (!process.env.GEMINI_KEY) throw new Error("API key is missing");
-        if (!req.file) throw new Error("No image uploaded");
+        if (!req.file) return res.status(400).send("No file uploaded");
 
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-        const base64Data = req.file.buffer.toString("base64");
+        // FIX pentru eroarea 404: Folosim gemini-1.5-flash fara v1beta daca e posibil
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const imagePart = {
-            inlineData: { data: base64Data, mimeType: req.file.mimetype }
+            inlineData: {
+                data: req.file.buffer.toString("base64"),
+                mimeType: req.file.mimetype
+            }
         };
 
-        const result = await model.generateContent(["Identify this artifact, give it a title and a short description.", imagePart]);
+        const result = await model.generateContent(["Analyze this artifact briefly.", imagePart]);
         const response = await result.response;
         const text = response.text();
 
-        const title = text.split('\n')[0].replace('#', '').trim() || "Artifact Scan";
-
         const newScan = {
             id: Date.now(),
-            title: title,
+            title: "Artifact Scan",
             description: text.substring(0, 100) + "...",
-            image: `data:${req.file.mimetype};base64,${base64Data}`
+            image: `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`
         };
         scanHistory.unshift(newScan);
 
         res.send(`
             <html>
-                <head>
-                    <link rel="stylesheet" href="/style.css">
-                    <title>Result - Artifact AI</title>
-                </head>
+                <head><link rel="stylesheet" href="/style.css"></head>
                 <body>
                     <div class="container">
-                        <h1>Analysis Result</h1>
-                        <div class="card" style="text-align:left; padding:20px;">
-                            <img src="${newScan.image}" style="width:100%; border-radius:10px; margin-bottom:15px;">
-                            <h3>${title}</h3>
+                        <h1>Result</h1>
+                        <div class="card">
                             <p>${text}</p>
                         </div>
-                        <a href="/history" style="background:#3b82f6; color:white; padding:10px 20px; border-radius:5px; display:inline-block; margin-top:20px;">Add to Collection</a>
-                        <br><a href="/">Scan another</a>
+                        <a href="/">← Back</a>
                     </div>
                 </body>
             </html>
         `);
     } catch (error) {
+        console.error(error);
         res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Back</a>`);
     }
 });
 
 app.get('/history', (req, res) => {
-    let cardsHTML = scanHistory.map(scan => `
+    let cardsHTML = scanHistory.map(s => `
         <div class="card">
-            <img src="${scan.image}" alt="artifact">
-            <h3>${scan.title}</h3>
-            <p>${scan.description}</p>
+            <img src="${s.image}">
+            <h3>${s.title}</h3>
+            <p>${s.description}</p>
         </div>
     `).join('');
-
-    if (scanHistory.length === 0) {
-        cardsHTML = "<p>Your collection is empty. Start scanning!</p>";
-    }
-
+    
     res.send(`
         <html>
-            <head>
-                <link rel="stylesheet" href="/style.css">
-                <title>Your Collection - Artifact AI</title>
-            </head>
+            <head><link rel="stylesheet" href="/style.css"></head>
             <body>
                 <div class="container">
-                    <h1>🏺 Your Collection</h1>
-                    <div class="grid">${cardsHTML}</div>
-                    <a href="/" style="margin-top:30px; display:block;">+ ADD NEW SCAN</a>
+                    <h1>Collection</h1>
+                    <div class="grid">${cardsHTML || "<p>Empty</p>"}</div>
+                    <a href="/">+ Add New</a>
                 </div>
             </body>
         </html>
     `);
 });
 
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-});
+app.listen(port, () => console.log(`Server started on port ${port}`));
