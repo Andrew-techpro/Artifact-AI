@@ -7,28 +7,31 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configurare cu forțare API v1 pentru a evita eroarea 404
+// Inițializare Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
-
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 app.use(express.static('public'));
 app.use(express.json());
 
+// Baza de date temporară
 let scanHistory = [];
-let temporaryScan = null; // Stocăm scanarea până când utilizatorul decide Save/Discard
+let temporaryScan = null; 
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// RUTA ANALIZĂ - Repară eroarea 404 și adaugă Save/Discard
 app.post('/analyze', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).send("No file uploaded");
 
-        // FIX CRITIC: Specificăm modelul fără v1beta
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // FIX: Forțăm apiVersion 'v1' pentru a evita eroarea 404 Not Found
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash" 
+        }, { apiVersion: 'v1' }); 
 
         const imagePart = {
             inlineData: {
@@ -44,10 +47,10 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         const response = await result.response;
         const text = response.text();
 
-        // Extragem un titlu din prima linie
+        // Curățăm titlul
         const title = text.split('\n')[0].replace(/[*#]/g, '').trim() || "New Artifact";
 
-        // Salvăm temporar
+        // Salvăm scanarea în memorie temporară
         temporaryScan = {
             id: Date.now(),
             title: title,
@@ -57,13 +60,16 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
 
         res.send(`
             <html>
-                <head><link rel="stylesheet" href="/style.css"></head>
+                <head>
+                    <link rel="stylesheet" href="/style.css">
+                    <title>Result - Artifact AI</title>
+                </head>
                 <body>
                     <div class="container">
-                        <h1>${temporaryScan.title}</h1>
+                        <h1 style="color: #3b82f6;">${title}</h1>
                         <div class="card">
                             <img src="${temporaryScan.image}" style="width:100%; border-radius:10px;">
-                            <p>${temporaryScan.description}</p>
+                            <p style="text-align: left; font-size: 0.9rem; margin-top: 15px;">${text}</p>
                         </div>
                         <div style="display:flex; gap:10px; margin-top:20px;">
                             <button onclick="location.href='/save'" style="background:#22c55e;">SAVE SCAN</button>
@@ -75,7 +81,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         `);
     } catch (error) {
         console.error(error);
-        res.status(500).send(`<h1>Error</h1><p>${error.message}</p><a href="/">Back</a>`);
+        res.status(500).send(`<html><head><link rel="stylesheet" href="/style.css"></head><body><div class="container"><h1>Error</h1><p>${error.message}</p><a href="/">Back</a></div></body></html>`);
     }
 });
 
@@ -100,10 +106,10 @@ app.get('/history', (req, res) => {
         <html>
             <head><link rel="stylesheet" href="/style.css"></head>
             <body>
-                <div class="container" style="max-width: 800px;">
-                    <h1>Your Collection</h1>
-                    <div class="grid">${cardsHTML || "<p>Empty</p>"}</div>
-                    <a href="/">+ Add New Scan</a>
+                <div class="container" style="max-width: 600px;">
+                    <h1>🏺 Your Collection</h1>
+                    <div class="grid">${cardsHTML || "<p>Your collection is empty.</p>"}</div>
+                    <a href="/">+ ADD NEW SCAN</a>
                 </div>
             </body>
         </html>
