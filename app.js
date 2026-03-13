@@ -7,13 +7,16 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Initialize Google AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
+
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 app.use(express.static('public'));
 app.use(express.json());
 
+// Temporary storage for history
 let scanHistory = [];
 let temporaryScan = null;
 
@@ -21,13 +24,17 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// MAIN ANALYSIS ROUTE
 app.post('/analyze', upload.single('image'), async (req, res) => {
-    console.log("--- Analysis Started ---");
+    console.log("--- New Scan Request ---");
     try {
         if (!req.file) return res.status(400).send("No image uploaded.");
 
-        // STRATEGY CHANGE: Using the -latest suffix which often resolves routing 404s
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        // THE FIX: Explicitly forcing 'v1' to bypass the 404 error
+        const model = genAI.getGenerativeModel(
+            { model: "gemini-1.5-flash" },
+            { apiVersion: 'v1' } 
+        );
 
         const imagePart = {
             inlineData: {
@@ -44,6 +51,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         const response = await result.response;
         const text = response.text();
 
+        // Extract title (first line)
         const title = text.split('\n')[0].replace(/[*#]/g, '').trim() || "New Artifact";
 
         temporaryScan = {
@@ -53,6 +61,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
             image: `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`
         };
 
+        // Result page with Narrow Design
         res.send(`
             <html>
                 <head>
@@ -84,7 +93,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
                 <head><link rel="stylesheet" href="/style.css"></head>
                 <body>
                     <div class="container">
-                        <h2 style="color: #ef4444;">Connection Error</h2>
+                        <h2 style="color: #ef4444;">API Error</h2>
                         <p>${error.message}</p>
                         <a href="/">Back to Scan</a>
                     </div>
@@ -94,6 +103,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
     }
 });
 
+// Route for saving to history
 app.get('/save', (req, res) => {
     if (temporaryScan) {
         scanHistory.unshift(temporaryScan);
@@ -102,6 +112,7 @@ app.get('/save', (req, res) => {
     res.redirect('/history');
 });
 
+// Collection page
 app.get('/history', (req, res) => {
     let cardsHTML = scanHistory.map(s => `
         <div class="card" style="margin-bottom: 20px;">
@@ -122,6 +133,17 @@ app.get('/history', (req, res) => {
             </body>
         </html>
     `);
+});
+
+// DETECTIVE ROUTE: Visit your-url.com/test-models to check your API key
+app.get('/test-models', async (req, res) => {
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${process.env.GEMINI_KEY}`);
+        const data = await response.json();
+        res.json(data);
+    } catch (e) {
+        res.status(500).send(e.message);
+    }
 });
 
 app.listen(port, () => {
