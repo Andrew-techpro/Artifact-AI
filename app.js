@@ -7,7 +7,6 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configurare Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -15,21 +14,18 @@ const upload = multer({ storage: storage });
 app.use(express.static('public'));
 app.use(express.json());
 
-// Baza de date temporară (se resetează la restartarea serverului pe Render)
 let scanHistory = [];
 
-// Pagina principală
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Ruta pentru Analiză
 app.post('/analyze', upload.single('image'), async (req, res) => {
     try {
         if (!process.env.GEMINI_KEY) throw new Error("API key is missing");
         if (!req.file) throw new Error("No image uploaded");
 
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
         const base64Data = req.file.buffer.toString("base64");
 
         const imagePart = {
@@ -40,10 +36,8 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         const response = await result.response;
         const text = response.text();
 
-        // Extragem un titlu simplu (primele cuvinte)
         const title = text.split('\n')[0].replace('#', '').trim() || "Artifact Scan";
 
-        // Salvăm în istoric
         const newScan = {
             id: Date.now(),
             title: title,
@@ -77,7 +71,6 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
     }
 });
 
-// Ruta pentru Istoric (Colecție)
 app.get('/history', (req, res) => {
     let cardsHTML = scanHistory.map(scan => `
         <div class="card">
