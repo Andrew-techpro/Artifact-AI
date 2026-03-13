@@ -32,9 +32,9 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
 
         // THE FIX: Explicitly forcing 'v1' to bypass the 404 error
        const model = genAI.getGenerativeModel(
-    { model: "gemini-2.0-flash" }, // This matches your list!
+    { model: "gemini-2.0-flash-lite" }, // Using Lite to save your new quota
     { apiVersion: 'v1' }
-    );
+);
 
         const imagePart = {
             inlineData: {
