@@ -36,10 +36,10 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         if (!req.file) return res.status(400).send("No image uploaded.");
 
         // FORCE v1 and use the Lite model for best Free Tier stability
-        const model = genAI.getGenerativeModel(
-            { model: "gemini-2.0-flash-lite" }, 
-            { apiVersion: 'v1' }
-        );
+       const model = genAI.getGenerativeModel(
+    { model: "gemini-2.0-flash-lite" }, // This is 100% on your screen!
+    { apiVersion: 'v1' }
+);
 
         const imagePart = {
             inlineData: {
