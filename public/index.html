@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artifact Scanner AI</title>
     <link rel="stylesheet" href="style.css">
-    <title>Artifact AI</title>
 </head>
 <body>
     <div class="container">
-        <h1>Artifact AI</h1>
+        <h1>Artifact Scanner</h1>
+        <p>Upload a photo of a historical object to identify it.</p>
+        
         <form action="/analyze" method="POST" enctype="multipart/form-data">
-    <input type="file" name="image" accept="image/*" required>
-    <button type="submit">ANALYZE ARTIFACT</button>
+            <div class="upload-area">
+                <input type="file" name="image" id="imageInput" accept="image/*" required>
+                <label for="imageInput">Select Photo</label>
+            </div>
+            <button type="submit" class="btn">Start AI Analysis</button>
         </form>
-        <div class="footer-links">
-            <a href="/history">View My Collection →</a>
-        </div>
     </div>
 </body>
 </html>
