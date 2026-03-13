@@ -37,7 +37,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
 
         // FORCE v1 and use the Lite model for best Free Tier stability
        const model = genAI.getGenerativeModel(
-    { model: "gemini-2.0-flash-lite" }, // This is 100% on your screen!
+    { model: "gemini-1.5-flash-8b" }, // Switch to the 8b version
     { apiVersion: 'v1' }
 );
 
