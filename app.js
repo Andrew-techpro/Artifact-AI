@@ -7,7 +7,7 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Initialize Google AI
+// Initialize Google AI with your Key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
 
 const storage = multer.memoryStorage();
@@ -16,7 +16,7 @@ const upload = multer({ storage: storage });
 app.use(express.static('public'));
 app.use(express.json());
 
-// Temporary storage for history
+// History storage
 let scanHistory = [];
 let temporaryScan = null;
 
@@ -26,15 +26,15 @@ app.get('/', (req, res) => {
 
 // MAIN ANALYSIS ROUTE
 app.post('/analyze', upload.single('image'), async (req, res) => {
-    console.log("--- New Scan Request ---");
+    console.log("--- Starting Analysis ---");
     try {
         if (!req.file) return res.status(400).send("No image uploaded.");
 
-        // THE FIX: Explicitly forcing 'v1' to bypass the 404 error
-       const model = genAI.getGenerativeModel(
-    { model: "gemini-2.0-flash-lite" }, // Using Lite to save your new quota
-    { apiVersion: 'v1' }
-);
+        // THE FIX: Using stable 1.5-flash and forcing v1 API version
+        const model = genAI.getGenerativeModel(
+            { model: "gemini-1.5-flash" }, 
+            { apiVersion: 'v1' }
+        );
 
         const imagePart = {
             inlineData: {
@@ -51,7 +51,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         const response = await result.response;
         const text = response.text();
 
-        // Extract title (first line)
+        // Title is the first line
         const title = text.split('\n')[0].replace(/[*#]/g, '').trim() || "New Artifact";
 
         temporaryScan = {
@@ -61,7 +61,6 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
             image: `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`
         };
 
-        // Result page with Narrow Design
         res.send(`
             <html>
                 <head>
@@ -103,7 +102,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
     }
 });
 
-// Route for saving to history
+// History routes
 app.get('/save', (req, res) => {
     if (temporaryScan) {
         scanHistory.unshift(temporaryScan);
@@ -112,7 +111,6 @@ app.get('/save', (req, res) => {
     res.redirect('/history');
 });
 
-// Collection page
 app.get('/history', (req, res) => {
     let cardsHTML = scanHistory.map(s => `
         <div class="card" style="margin-bottom: 20px;">
@@ -135,7 +133,7 @@ app.get('/history', (req, res) => {
     `);
 });
 
-// DETECTIVE ROUTE: Visit your-url.com/test-models to check your API key
+// DIAGNOSTIC ROUTE
 app.get('/test-models', async (req, res) => {
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${process.env.GEMINI_KEY}`);
