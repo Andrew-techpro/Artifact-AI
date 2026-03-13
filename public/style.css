@@ -1,7 +1,8 @@
+/* Fundalul și fontul general */
 body {
     background-color: #121212;
     color: #ffffff;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -9,36 +10,41 @@ body {
     margin: 0;
 }
 
+/* Containerul principal - acum mai îngust (narrow) */
 .container {
     background-color: #1e1e1e;
     padding: 30px;
     border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
     text-align: center;
     width: 90%;
-   
-    max-width: 400px; 
+    max-width: 400px; /* FIX: Aceasta este lățimea cerută de tine */
+    margin: 20px;
 }
 
 h1 {
-    font-size: 2rem;
+    font-size: 1.8rem;
     margin-bottom: 25px;
+    font-weight: 700;
 }
 
+/* Formularul și butoanele - așezate vertical */
 form {
     display: flex;
-    flex-direction: column; 
+    flex-direction: column;
     gap: 15px;
+    margin-bottom: 20px;
 }
 
 input[type="file"] {
     background: #2a2a2a;
     padding: 12px;
-    border-radius: 8px;
+    border-radius: 10px;
     border: 1px dashed #444;
     color: #ccc;
     width: 100%;
     box-sizing: border-box;
+    cursor: pointer;
 }
 
 button {
@@ -46,40 +52,81 @@ button {
     color: white;
     border: none;
     padding: 15px;
+    font-size: 0.95rem;
     font-weight: bold;
-    border-radius: 8px;
+    border-radius: 10px;
     cursor: pointer;
-    transition: 0.3s;
+    transition: all 0.3s ease;
     width: 100%;
 }
 
 button:hover {
     background-color: #2563eb;
+    transform: translateY(-2px);
 }
 
+/* Butoane specifice pentru SAVE și DISCARD */
+.btn-save {
+    background-color: #22c55e !important;
+}
+
+.btn-discard {
+    background-color: #ef4444 !important;
+}
+
+/* Grid-ul pentru Colecție */
 .grid {
     display: grid;
-    grid-template-columns: 1fr; 
+    grid-template-columns: 1fr; /* Rămân unul sub altul în cutia îngustă */
     gap: 20px;
-    margin-top: 20px;
+    margin-top: 25px;
 }
 
 .card {
     background: #2a2a2a;
+    border-radius: 15px;
     padding: 15px;
-    border-radius: 12px;
     text-align: left;
+    border: 1px solid #333;
 }
 
 .card img {
     width: 100%;
-    border-radius: 8px;
+    height: auto;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    display: block;
 }
 
-a {
+.card h3 {
+    font-size: 1.1rem;
     color: #3b82f6;
+    margin: 0 0 8px 0;
+}
+
+.card p {
+    font-size: 0.85rem;
+    color: #bbb;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* Navigare și Link-uri */
+a {
+    color: #60a5fa;
     text-decoration: none;
     font-size: 0.9rem;
     display: inline-block;
-    margin-top: 15px;
+    margin-top: 20px;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Utilitare pentru spațiere flexibilă */
+.flex-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
 }
