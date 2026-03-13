@@ -7,34 +7,27 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Initialize Google AI with your Key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
-
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 app.use(express.static('public'));
 app.use(express.json());
 
-// History storage
-let scanHistory = [];
-let temporaryScan = null;
-
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// MAIN ANALYSIS ROUTE
 app.post('/analyze', upload.single('image'), async (req, res) => {
-    console.log("--- Starting Analysis ---");
     try {
         if (!req.file) return res.status(400).send("No image uploaded.");
 
-        // THE FIX: Using stable 1.5-flash and forcing v1 API version
-       const model = genAI.getGenerativeModel(
-    { model: "gemini-2.0-flash" }, 
-    { apiVersion: 'v1' } 
-);
+        // We use 1.5-flash (your original model) 
+        // but we add this { apiVersion: 'v1' } to stop the 404
+        const model = genAI.getGenerativeModel(
+            { model: "gemini-1.5-flash" },
+            { apiVersion: 'v1' } 
+        );
 
         const imagePart = {
             inlineData: {
@@ -44,106 +37,33 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         };
 
         const result = await model.generateContent([
-            "Identify this artifact. Provide a short Title and an interesting Description.", 
+            "Identify this artifact. Provide a short Title and an interesting Description in English.", 
             imagePart
         ]);
         
         const response = await result.response;
         const text = response.text();
 
-        // Title is the first line
-        const title = text.split('\n')[0].replace(/[*#]/g, '').trim() || "New Artifact";
-
-        temporaryScan = {
-            id: Date.now(),
-            title: title,
-            description: text,
-            image: `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`
-        };
-
+        // Simple result page
         res.send(`
             <html>
-                <head>
-                    <link rel="stylesheet" href="/style.css">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                </head>
+                <head><link rel="stylesheet" href="/style.css"></head>
                 <body>
                     <div class="container">
-                        <h1 style="color: #3b82f6;">${title}</h1>
+                        <h1>Analysis Result</h1>
                         <div class="card">
-                            <img src="${temporaryScan.image}">
-                            <div style="padding: 15px; text-align: left;">
-                                <p>${text}</p>
-                            </div>
+                            <img src="data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}">
+                            <p>${text}</p>
                         </div>
-                        <div style="display:flex; gap:10px; margin-top:20px;">
-                            <button onclick="location.href='/save'" style="background:#22c55e;">SAVE SCAN</button>
-                            <button onclick="location.href='/'" style="background:#ef4444;">DISCARD</button>
-                        </div>
+                        <a href="/">Scan Again</a>
                     </div>
                 </body>
             </html>
         `);
 
     } catch (error) {
-        console.error("API ERROR:", error.message);
-        res.status(500).send(`
-            <html>
-                <head><link rel="stylesheet" href="/style.css"></head>
-                <body>
-                    <div class="container">
-                        <h2 style="color: #ef4444;">API Error</h2>
-                        <p>${error.message}</p>
-                        <a href="/">Back to Scan</a>
-                    </div>
-                </body>
-            </html>
-        `);
+        res.status(500).send(`Error: ${error.message}`);
     }
 });
 
-// History routes
-app.get('/save', (req, res) => {
-    if (temporaryScan) {
-        scanHistory.unshift(temporaryScan);
-        temporaryScan = null;
-    }
-    res.redirect('/history');
-});
-
-app.get('/history', (req, res) => {
-    let cardsHTML = scanHistory.map(s => `
-        <div class="card" style="margin-bottom: 20px;">
-            <img src="${s.image}">
-            <h3 style="padding: 10px;">${s.title}</h3>
-        </div>
-    `).join('');
-    
-    res.send(`
-        <html>
-            <head><link rel="stylesheet" href="/style.css"></head>
-            <body>
-                <div class="container" style="max-width: 500px;">
-                    <h1>🏺 Your Collection</h1>
-                    <div class="grid">${cardsHTML || "<p>No scans saved yet.</p>"}</div>
-                    <a href="/" style="display:block; margin-top:20px;">+ SCAN SOMETHING ELSE</a>
-                </div>
-            </body>
-        </html>
-    `);
-});
-
-// DIAGNOSTIC ROUTE
-app.get('/test-models', async (req, res) => {
-    try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${process.env.GEMINI_KEY}`);
-        const data = await response.json();
-        res.json(data);
-    } catch (e) {
-        res.status(500).send(e.message);
-    }
-});
-
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-});
+app.listen(port, () => console.log(`Server running on port ${port}`));
