@@ -31,10 +31,10 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         if (!req.file) return res.status(400).send("No image uploaded.");
 
         // THE FIX: Explicitly forcing 'v1' to bypass the 404 error
-        const model = genAI.getGenerativeModel(
-            { model: "gemini-1.5-flash" },
-            { apiVersion: 'v1' } 
-        );
+       const model = genAI.getGenerativeModel(
+    { model: "gemini-2.0-flash" }, // This matches your list!
+    { apiVersion: 'v1' }
+    );
 
         const imagePart = {
             inlineData: {
