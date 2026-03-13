@@ -14,7 +14,6 @@ const upload = multer({ storage: storage });
 app.use(express.static('public'));
 app.use(express.json());
 
-// Această secțiune rezolvă eroarea "Cannot GET /"
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
