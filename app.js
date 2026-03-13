@@ -25,7 +25,7 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         // We use 1.5-flash (your original model) 
         // but we add this { apiVersion: 'v1' } to stop the 404
         const model = genAI.getGenerativeModel(
-            { model: "gemini-1.5-flash" },
+            { model: "gemini-1.5-flash-8b" },
             { apiVersion: 'v1' } 
         );
 
