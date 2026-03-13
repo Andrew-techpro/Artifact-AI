@@ -7,7 +7,9 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Initialize Google AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
+
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
@@ -18,16 +20,26 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// DIAGNOSTIC ROUTE - This MUST work for the scan to work
+app.get('/test-models', async (req, res) => {
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${process.env.GEMINI_KEY}`);
+        const data = await response.json();
+        res.json(data);
+    } catch (e) {
+        res.status(500).send(e.message);
+    }
+});
+
 app.post('/analyze', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).send("No image uploaded.");
 
-        // We use 1.5-flash (your original model) 
-        // but we add this { apiVersion: 'v1' } to stop the 404
+        // FORCE v1 and use the Lite model for best Free Tier stability
         const model = genAI.getGenerativeModel(
-    { model: "gemini-2.0-flash" }, // This is 100% on your list
-    { apiVersion: 'v1' }
-);
+            { model: "gemini-2.0-flash-lite" }, 
+            { apiVersion: 'v1' }
+        );
 
         const imagePart = {
             inlineData: {
@@ -43,27 +55,45 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         
         const response = await result.response;
         const text = response.text();
+        const title = text.split('\n')[0].replace(/[*#]/g, '').trim() || "Artifact Found";
 
-        // Simple result page
         res.send(`
             <html>
-                <head><link rel="stylesheet" href="/style.css"></head>
+                <head>
+                    <link rel="stylesheet" href="/style.css">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
                 <body>
                     <div class="container">
-                        <h1>Analysis Result</h1>
+                        <h1 style="color: #3b82f6;">${title}</h1>
                         <div class="card">
                             <img src="data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}">
-                            <p>${text}</p>
+                            <div style="padding: 15px; text-align: left;"><p>${text}</p></div>
                         </div>
-                        <a href="/">Scan Again</a>
+                        <a href="/" style="display:block; margin-top:20px; color: #3b82f6;">← Scan Another</a>
                     </div>
                 </body>
             </html>
         `);
 
     } catch (error) {
-        res.status(500).send(`Error: ${error.message}`);
+        console.error("API Error:", error.message);
+        const isQuota = error.message.includes("429");
+        res.status(isQuota ? 429 : 500).send(`
+            <html>
+                <head><link rel="stylesheet" href="/style.css"></head>
+                <body>
+                    <div class="container">
+                        <h2 style="color: #ef4444;">${isQuota ? "System Busy" : "Technical Error"}</h2>
+                        <p>${isQuota ? "Please wait 60 seconds for the free tier to reset." : error.message}</p>
+                        <a href="/">Try Again</a>
+                    </div>
+                </body>
+            </html>
+        `);
     }
 });
 
-app.listen(port, () => console.log(`Server running on port ${port}`));
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+});
