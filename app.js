@@ -7,16 +7,13 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Inițializare Google AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_KEY);
-
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 app.use(express.static('public'));
 app.use(express.json());
 
-// Baza de date temporară pentru istoric
 let scanHistory = [];
 let temporaryScan = null;
 
@@ -24,17 +21,13 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// RUTA DE ANALIZĂ - Aici am aplicat fix-ul pentru eroarea 404
 app.post('/analyze', upload.single('image'), async (req, res) => {
-    console.log("--- Început Analiză ---");
+    console.log("--- Analysis Started ---");
     try {
-        if (!req.file) return res.status(400).send("Nu ai urcat nicio imagine.");
+        if (!req.file) return res.status(400).send("No image uploaded.");
 
-        // FIX CRITIC: Forțăm apiVersion 'v1' pentru a evita v1beta (care dă 404)
-        const model = genAI.getGenerativeModel(
-            { model: "gemini-1.5-flash" },
-            { apiVersion: 'v1' } 
-        );
+        // STRATEGY CHANGE: Using the -latest suffix which often resolves routing 404s
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
         const imagePart = {
             inlineData: {
@@ -44,17 +37,15 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         };
 
         const result = await model.generateContent([
-            "Identifică acest artefact. Oferă un Titlu scurt și o Descriere interesantă.", 
+            "Identify this artifact. Provide a short Title and an interesting Description.", 
             imagePart
         ]);
         
         const response = await result.response;
         const text = response.text();
 
-        // Extragem titlul (prima linie)
-        const title = text.split('\n')[0].replace(/[*#]/g, '').trim() || "Artefact Nou";
+        const title = text.split('\n')[0].replace(/[*#]/g, '').trim() || "New Artifact";
 
-        // Salvăm în variabila temporară pentru butonul SAVE
         temporaryScan = {
             id: Date.now(),
             title: title,
@@ -62,7 +53,6 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
             image: `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`
         };
 
-        // Pagina de rezultat cu designul compact (narrow)
         res.send(`
             <html>
                 <head>
@@ -88,15 +78,15 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
         `);
 
     } catch (error) {
-        console.error("DETALII EROARE:", error.message);
+        console.error("API ERROR:", error.message);
         res.status(500).send(`
             <html>
                 <head><link rel="stylesheet" href="/style.css"></head>
                 <body>
                     <div class="container">
-                        <h2 style="color: #ef4444;">Eroare API</h2>
+                        <h2 style="color: #ef4444;">Connection Error</h2>
                         <p>${error.message}</p>
-                        <a href="/">Înapoi la scanare</a>
+                        <a href="/">Back to Scan</a>
                     </div>
                 </body>
             </html>
@@ -104,16 +94,14 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
     }
 });
 
-// Ruta pentru salvarea efectivă în istoric
 app.get('/save', (req, res) => {
     if (temporaryScan) {
-        scanHistory.unshift(temporaryScan); // Adaugă la începutul listei
-        temporaryScan = null; // Golește buffer-ul
+        scanHistory.unshift(temporaryScan);
+        temporaryScan = null;
     }
     res.redirect('/history');
 });
 
-// Pagina cu colecția de artefacte
 app.get('/history', (req, res) => {
     let cardsHTML = scanHistory.map(s => `
         <div class="card" style="margin-bottom: 20px;">
@@ -127,9 +115,9 @@ app.get('/history', (req, res) => {
             <head><link rel="stylesheet" href="/style.css"></head>
             <body>
                 <div class="container" style="max-width: 500px;">
-                    <h1>🏺 Colecția Ta</h1>
-                    <div class="grid">${cardsHTML || "<p>Nu ai nicio scanare salvată.</p>"}</div>
-                    <a href="/" style="display:block; margin-top:20px;">+ SCANEAZĂ ALTCEVA</a>
+                    <h1>🏺 Your Collection</h1>
+                    <div class="grid">${cardsHTML || "<p>No scans saved yet.</p>"}</div>
+                    <a href="/" style="display:block; margin-top:20px;">+ SCAN SOMETHING ELSE</a>
                 </div>
             </body>
         </html>
@@ -137,5 +125,5 @@ app.get('/history', (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`Serverul rulează pe portul ${port}`);
+    console.log(`Server running on port ${port}`);
 });
